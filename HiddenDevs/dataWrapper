@@ -1,0 +1,63 @@
+--!strict
+
+--[[
+Script is coded by MiniSardine
+(sinthel_ on discord and applying with the account lSinthel)
+This is being created for a hiddendev application!
+Expect this to be open-source on github shortly!
+
+A Wrapper with some added functionality for the DataStoreService
+
+]]--
+
+local dataLib = {}
+
+local dss = game:GetService("DataStoreService")
+
+function dataLib:newStore(name: string)
+	assert(typeof(name) == "string", "[Byte] - Datastore Names must be a string")
+
+	local object = {}
+	setmetatable(object, self)
+	self.__index = self
+	
+	self._store = nil
+
+	local store: DataStore = dss:GetDataStore(name)
+
+	if store then
+		self._store = store
+	else
+		error("[Byte] - Could not create Datastore "..name)
+	end
+
+	return getmetatable(object)
+end
+
+function dataLib:fetchData(scope: string)
+	assert(typeof(scope) == "string", "[Byte] - Datastore Scopes must be a string")
+
+	local data
+
+	local success, err = pcall(function()
+		if scope then
+			data = self._store:GetAsync(scope)
+		end
+	end)
+
+	return data
+end
+
+function dataLib:storeData(scope: string, data: any)
+	assert(typeof(scope) == "string", "[Byte] - Datastore Scopes must be a string")
+
+	local success, err = pcall(function()
+		if data and scope then
+			self._store:SetAsync(scope,data)
+		end
+	end)
+
+	return success
+end
+
+return dataLib
