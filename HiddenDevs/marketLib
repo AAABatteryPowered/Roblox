@@ -1,0 +1,141 @@
+--!strict
+
+--[[
+Script is coded by MiniSardine
+(sinthel_ on discord and applying with the account lSinthel)
+This is being created for a hiddendev application!
+Expect this to be open-source on github shortly!
+
+A Wrapper with some added functionality for the MarketplaceService,
+Designed to be used with gui's so they can quickly display gamepasses with information!
+
+]]--
+
+local mss = game:GetService("MarketplaceService")
+
+local marketLib = {
+	['Passes'] = {}
+}
+
+export type gamepass = {
+	Name: string,
+	Description: string,
+	Id: number,
+	Price: number,
+	Function: any
+}
+
+local function find_gamepass(id: number)
+	for _,v in pairs(marketLib.Passes) do
+		if v.Id == id then
+			return v
+		end
+	end
+	return nil
+end
+
+mss.PromptGamePassPurchaseFinished:Connect(function(plr, passid, success)
+	if success == true then
+		local passexists = find_gamepass(passid)
+		if passexists then
+			passexists.Function()
+		end
+	end
+end)
+
+local function begin_cycle()
+	local i = 1
+	game["Run Service"].Heartbeat:Connect(function()
+		i += 1
+		for i, player in game.Players:GetPlayers() do
+			local passFolder = player:WaitForChild("passFolder")
+			for i, attr in marketLib['Passes'] do
+				local found = passFolder:FindFirstChild(i)
+				if not found then
+					local fold = Instance.new("Folder")
+					fold.Parent = passFolder
+					fold.Name = i
+					for _, thing in pairs(attr) do
+						local thingtype = typeof(thing)
+						if thingtype == "string" then
+							local newval = Instance.new("StringValue")
+							newval.Name = _
+							newval.Parent = fold
+							newval.Value = thing
+						elseif thingtype == "number" then
+							local newval = Instance.new("NumberValue")
+							newval.Name = _
+							newval.Parent = fold
+							newval.Value = thing
+						end
+					end
+				end
+			end
+		end
+		--[[if i >= 60 then
+			i = 0
+			datastore:storeData(game.PlaceId.."-passes", marketLib['Passes'])
+		end
+		print(marketLib['Passes'])]]--
+	end)
+end
+
+function marketLib.ListGamepass(data: gamepass)
+	assert(typeof(data) == "table", "[MarketLibrary] - Attempt to upload a non-gamepass object")
+	assert(typeof(data.Function) == "function", "[MarketLibrary] - Attempt to connect a non-function to a gamepass")
+	
+	begin_cycle()
+	
+	marketLib['Passes'][data.Name] = data
+	
+	return true
+end
+
+function marketLib.UnlistGamepass(id: number)
+	assert(typeof(id) == "number", "[MarketLibrary] - Attempt to use a non-integer for a gamepass ID")
+	
+	local found = find_gamepass(id)
+	if found then
+		table.remove(marketLib['Passes'],table.find(marketLib['Passes'],marketLib['Passes'][found.Name]))
+		for i, plr in pairs(game.Players:GetPlayers()) do
+			if plr:WaitForChild("passFolder"):FindFirstChild(i) then
+				plr:WaitForChild("passFolder"):FindFirstChild(i):Destroy()
+			end
+		end
+		return true
+	else
+		return false
+	end
+end
+
+function marketLib.UserOwnsPass(user: Player, id: number)
+	assert(typeof(id) == "number", "[MarketLibrary] - Attempt to use a non-integer for a gamepass ID")
+	assert(typeof(user) == "Player", "[MarketLibrary] - Attempt to check a non-player for a gamepass")
+	print(typeof(user))
+	
+	local found = mss:UserOwnsGamePassAsync(user.UserId,id)
+	if found then
+		return true
+	else
+		return false
+	end
+end
+
+function marketLib.PromptPurchase(player: Player, id: number)
+	assert(typeof(id) == "number", "[MarketLibrary] - Attempt to use a non-integer for a gamepass ID")
+	assert(typeof(player) == "Player", "[MarketLibrary] - Attempt to check a non-player for a gamepass")
+	
+	mss:PromptPurchase(player,id)
+end
+
+game.Players.PlayerAdded:Connect(function(plr)
+	local passFolder = Instance.new("Folder")
+	passFolder.Parent = plr
+	passFolder.Name = "passFolder"
+	
+	for i, v in marketLib['Passes'] do
+		passFolder:SetAttribute(i, v)
+	end
+end)
+
+return marketLib
