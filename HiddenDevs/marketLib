@@ -11,6 +11,7 @@ Designed to be used with gui's so they can quickly display gamepasses with infor
 
 ]]--
 
+--declaring of variables
 local mss = game:GetService("MarketplaceService")
 
 local marketLib = {
@@ -20,13 +21,14 @@ local marketLib = {
 
 --a gamepass data type
 export type gamepass = {
-	Name: string,
-	Description: string,
-	Id: number,
-	Price: number,
-	Function: any
+	Name: string, --name of the gamepass
+	Description: string, --description of the gamepass
+	Id: number, --ID of the gamepass
+	Price: number, --Price in robux of the gamepass
+	Function: any --the function that will run once it has been bought
 }
 
+--devproduct data type: exact same data as the gamepass
 export type devProduct = {
 	Name: string,
 	Description: string,
@@ -38,13 +40,16 @@ export type devProduct = {
 --a function to find and return a gamepass with a given id
 local function find_gamepass(id: number)
 	for _,v in pairs(marketLib.Passes) do
+		--for each pass in the games gamepasses
 		if v.Id == id then
+			if the given gamepass ID matches the gamepasse id, it returns the gamepass
 			return v
 		end
 	end
 	return nil
 end
 
+--exact same process as the find_gamepass function, but for devproducts
 local function find_product(id: number)
 	for _,v in pairs(marketLib.Products) do
 		if v.Id == id then
@@ -57,14 +62,18 @@ end
 
 --runs on a gamepass purchases, and if there is a pass with said Id, it will call the function attached
 mss.PromptGamePassPurchaseFinished:Connect(function(plr, passid, success)
+	--if the pass was bought successfully
 	if success == true then
+		--if the pass exists
 		local passexists = find_gamepass(passid)
 		if passexists then
+			--call the function attached to it
 			passexists.Function()
 		end
 	end
 end)
 
+--exact same as the function above, for devproducts
 mss.PromptProductPurchaseFinished:Connect(function(plr, passid, success)
 	if success == true then
 		local productxists = find_product(passid)
@@ -81,29 +90,32 @@ local function begin_cycle()
 		i += 1
 		--a loop being called prior to every frame, that is updating the player's passFolder with the passes from the passes table and inserting passes that aren't found
 		for i, player in game.Players:GetPlayers() do
-			
+
+			--finding the player's passfolder
 			local passFolder = player:WaitForChild("passFolder")
 			
 			for i, attr in marketLib['Passes'] do
-				
+				--for every stored pass in a list of all the passes 
 				local found = passFolder:FindFirstChild(i)
 				
 				if not found then
-					
+					--if the gamepass hassnt been stored
 					local fold = Instance.new("Folder")
 					fold.Parent = passFolder
 					fold.Name = i
+					--creates the folder item to represent that pass
 					
 					for _, thing in pairs(attr) do
-						
+						--for each piece of data in the pass (name,description,id, all ound in the gamepass datatype we exported above)
 						local thingtype = typeof(thing)
-						
+						--if statements to find if the piece is a string or number (like an id or name)
 						if thingtype == "string" then
 							
 							local newval = Instance.new("StringValue")
 							newval.Name = _
 							newval.Parent = fold
 							newval.Value = thing
+							--creates a value for its respective type
 							
 						elseif thingtype == "number" then
 							
@@ -111,6 +123,7 @@ local function begin_cycle()
 							newval.Name = _
 							newval.Parent = fold
 							newval.Value = thing
+							--creates a value for its respective type
 							
 						end
 					end
@@ -130,15 +143,19 @@ end
 function marketLib.ListGamepass(data: gamepass)
 	assert(typeof(data) == "table", "[MarketLibrary] - Attempt to upload a non-gamepass object")
 	assert(typeof(data.Function) == "function", "[MarketLibrary] - Attempt to connect a non-function to a gamepass")
-	
+	--uses the assert and typeof functions to check if the given data is in the correct format, and calls an error if it is not
+
+	--runs the begin cycle function
 	begin_cycle()
-	
+
+	--stores the pass in the list of passes
 	marketLib['Passes'][data.Name] = data
 	
 	return true
 end
 
 function marketLib.ListProduct(data: devProduct)
+	--exact same process as above but for devproducts
 	assert(typeof(data) == "table", "[MarketLibrary] - Attempt to upload a non-dev-product object")
 	assert(typeof(data.Function) == "function", "[MarketLibrary] - Attempt to connect a non-function to a dev-product")
 
@@ -151,16 +168,17 @@ end
 
 --unlists a gamepass and removes the gamepass folder from every player's passFolder
 function marketLib.UnlistGamepass(id: number)
+	--assert and typeof again to check we have the correct type
 	assert(typeof(id) == "number", "[MarketLibrary] - Attempt to use a non-integer for a gamepass ID")
 	
 	local found = find_gamepass(id)
 	
 	if found then
-		
+		--if the pass exists
 		table.remove(marketLib['Passes'],table.find(marketLib['Passes'],marketLib['Passes'][found.Name]))
-		
+		--removes the pass from the list of passes
 		for i, plr in pairs(game.Players:GetPlayers()) do
-			
+			--for each player we destroy the pass instance
 			if plr:WaitForChild("passFolder"):FindFirstChild(i) then
 				
 				plr:WaitForChild("passFolder"):FindFirstChild(i):Destroy()
@@ -175,6 +193,7 @@ function marketLib.UnlistGamepass(id: number)
 end
 
 function marketLib.UnlistProduct(id: number)
+	--exact same process as above but for devproducts
 	assert(typeof(id) == "number", "[MarketLibrary] - Attempt to use a non-integer for a dev-product ID")
 
 	local found = find_product(id)
@@ -200,28 +219,34 @@ end
 
 --checks if a user owns a pass with the given Id, and returns true or false accordingly
 function marketLib.UserOwnsPass(user: Player, id: number)
+	--typeofs and asserts to check we have correct data type
 	assert(typeof(id) == "number", "[MarketLibrary] - Attempt to use a non-integer for a gamepass ID")
 	assert(typeof(user) == "Player", "[MarketLibrary] - Attempt to check a non-player for a gamepass")
 	print(typeof(user))
 	
 	local found = mss:UserOwnsGamePassAsync(user.UserId,id)
+	--checks if the given user owns the pass with the given id
 	if found then
 		return true
 	else
 		return false
 	end
+	--returns true or false accordingly
 end
 
 --prompts the given user the opportunity to purchase a gamepass or product with the given id
 function marketLib.PromptPurchase(player: Player, id: number)
+	--assert and typeof to check for valid data types
 	assert(typeof(id) == "number", "[MarketLibrary] - Attempt to use a non-integer for a gamepass ID")
 	assert(typeof(player) == "Player", "[MarketLibrary] - Attempt to check a non-player for a gamepass")
 	
 	mss:PromptPurchase(player,id)
+	--prompts the purchase
 end
 
 --inserts the passFolder into each player who joins
 game.Players.PlayerAdded:Connect(function(plr)
+	--folders for all the passes and devproduct
 	local passFolder = Instance.new("Folder")
 	passFolder.Parent = plr
 	passFolder.Name = "passFolder"
@@ -231,10 +256,12 @@ game.Players.PlayerAdded:Connect(function(plr)
 	productFolder.Name = "productFolder"
 	
 	for i, v in marketLib['Passes'] do
+		--for each pass
 		local fold = Instance.new("Folder")
 		fold.Parent = passFolder
 		fold.Name = i
 		for _, thing in pairs(v) do
+			--and all of it's data
 			local thingtype = typeof(thing)
 
 			if thingtype == "string" then
@@ -253,7 +280,9 @@ game.Players.PlayerAdded:Connect(function(plr)
 
 			end
 		end
+		--creates all the value
 	end
+	--exact same but for products
 	for i, v in marketLib['Products'] do
 		local fold = Instance.new("Folder")
 		fold.Parent = productFolder
