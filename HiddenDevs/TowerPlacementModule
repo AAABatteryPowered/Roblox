@@ -1,0 +1,192 @@
+local tweenService = game:GetService("TweenService")
+local userInputService = game:GetService("UserInputService")
+local repStorage = game:GetService("ReplicatedStorage")
+
+local FunctionsRep = repStorage:WaitForChild("Functions")
+
+local TowersRep = repStorage:FindFirstChild("Towers")
+
+local GameGui = script.Parent.Parent
+local TowerMenu = GameGui.TowerMenu
+local TowerMenuFrame = TowerMenu.Menu
+local SideButtons = GameGui.SideButtons
+
+local PlacementModule = {}
+
+local towerToSpawn = nil
+local canPlace = false
+local towerRotation = 0
+
+local tweenInfo = TweenInfo.new(
+	0.05,
+	Enum.EasingStyle.Quad,
+	Enum.EasingDirection.InOut,
+	0,
+	false,
+	0
+)
+
+local DeletePlaceHolderTweenInfo = TweenInfo.new(
+	0.25,
+	Enum.EasingStyle.Quad,
+	Enum.EasingDirection.InOut,
+	0,
+	false,
+	0
+)
+
+function PlacementModule.CreateRangeCircle(tower, placeHolder)
+	
+end
+
+local function MouseRaycast(model)
+	local camera = workspace.Camera
+	local mousePosition = userInputService:GetMouseLocation()
+	local mouseRay = camera:ViewportPointToRay(mousePosition.X, mousePosition.Y)
+	local raycastParams = RaycastParams.new()
+	local blacklist = camera:GetChildren()
+	table.insert(blacklist, model)
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	raycastParams.FilterDescendantsInstances = blacklist
+	local raycastResult = workspace:Raycast(mouseRay.Origin, mouseRay.Direction * 1000, raycastParams)
+	return raycastResult
+end
+
+local function ColorPlaceholderTower(color)
+	if towerToSpawn then
+		for i, part in pairs(towerToSpawn:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.Color = color
+				
+			end
+		end
+	end
+end
+
+function PlacementModule.PlaceTower(name, cframe)
+	
+	local towerExists = TowersRep:FindFirstChild(name)
+	if towerExists then
+		local placed = FunctionsRep:WaitForChild("tower"):WaitForChild("tower.Place"):InvokeServer(name, cframe, PlacementModule.hoveredInstance)
+		if placed then
+			PlacementModule.RemovePlaceholderTower(true)
+			canPlace = false
+			towerRotation = 0
+		end
+	end
+end
+
+function PlacementModule.CreatePlaceholderTower(name)
+	local towerExists = TowersRep:FindFirstChild(name)
+	if towerExists then
+		towerToSpawn = towerExists["1"][name]:Clone()
+		towerToSpawn.Parent = workspace.Camera
+		--PlacementModule.CreateRangeCircle(towerToSpawn, true)
+		ColorPlaceholderTower(Color3.fromRGB(0,255,0))
+		return towerToSpawn
+	else
+		warn("Tower: "..name.." does not exist")
+		return false
+	end
+end
+
+function PlacementModule.RemovePlaceholderTower(placed)
+	if towerToSpawn then
+		if not placed then
+			local target_pos = towerToSpawn.PrimaryPart.Position - Vector3.new(0,-10,0)
+			local tween = tweenService:Create(towerToSpawn.PrimaryPart,DeletePlaceHolderTweenInfo,{Position = target_pos})
+			
+			tween:Play()
+			
+			repeat task.wait() until tween.PlaybackState == Enum.PlaybackState.Completed
+
+			towerToSpawn:Destroy()
+			towerToSpawn = nil
+		else
+			towerToSpawn:Destroy()
+			towerToSpawn = nil
+		end
+	end
+end
+
+function PlacementModule.LoadTowerMenu()
+	for i, tower in pairs(TowersRep:GetChildren()) do
+		if tower:IsA("Folder") then
+			local baseTower = tower["1"]
+			local confiG= tower:FindFirstChildOfClass("ModuleScript")
+			
+			if not confiG then return end
+			
+			local config = require(confiG)
+			
+			local towerFrame = TowerMenuFrame.List.Template.Temp:Clone()
+			towerFrame.Parent = TowerMenuFrame.List
+			towerFrame.Name = tower.Name
+			towerFrame.Price.Text = config.Levels[1].Buy
+			towerFrame.Visible = true
+			towerFrame.ImageButton.Image = config.Levels[1].IconTexture
+			
+			towerFrame.ImageButton.Activated:Connect(function()
+				PlacementModule.CreatePlaceholderTower(tower.Name)
+				TowerMenuFrame.Visible = false
+			end)
+		end
+	end
+	SideButtons.OpenTowerMenu.Click.Activated:Connect(function()
+		TowerMenuFrame.Visible = not TowerMenuFrame.Visible
+	end)
+end
+
+function PlacementModule.Input(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if towerToSpawn and canPlace then
+			PlacementModule.PlaceTower(towerToSpawn.Name, towerToSpawn.PrimaryPart.CFrame)
+		end
+	elseif input.KeyCode == Enum.KeyCode.R then
+		if towerToSpawn then
+			towerRotation += 90
+			if towerRotation >= 360 then
+				towerRotation = 0
+			end
+		end
+	elseif input.KeyCode == Enum.KeyCode.Q and towerToSpawn then
+		PlacementModule.RemovePlaceholderTower(false)
+		canPlace = false
+		towerRotation = 0
+	end
+end
+
+function PlacementModule.Tick()
+	local result = MouseRaycast(towerToSpawn)
+	if result and result.Instance then
+		if towerToSpawn then
+			
+			local overlapparams = OverlapParams.new()
+			overlapparams.FilterType = Enum.RaycastFilterType.Exclude
+			overlapparams.FilterDescendantsInstances = {towerToSpawn}
+
+			local overlapping_parts = workspace:GetPartsInPart(towerToSpawn.PrimaryPart, overlapparams)
+			
+			if result.Instance:FindFirstAncestor("TowerArea") and #overlapping_parts < 1 then
+				canPlace = true
+				ColorPlaceholderTower(Color3.new(0,1,0))
+			else
+				canPlace = false
+				ColorPlaceholderTower(Color3.new(1,0,0))
+			end
+			
+			local x = result.Position.X
+			local y = result.Position.Y + (towerToSpawn.PrimaryPart.Size.Y / 2)
+			local z = result.Position.Z
+			local cframe = CFrame.new(x,y,z) * CFrame.Angles(0,math.rad(towerRotation),0)
+	
+			tweenService:Create(towerToSpawn.PrimaryPart,tweenInfo,{CFrame = cframe}):Play()
+		else
+			PlacementModule.hoveredInstance = result.Instance
+		end
+	else
+		PlacementModule.hoveredInstance = nil
+	end
+end
+
+return PlacementModule
