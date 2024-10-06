@@ -1,3 +1,9 @@
+--[[
+Submitting for HiddenDevs
+Made by MiniSardine or sinthel_ on discord
+]]--
+
+
 local tweenService = game:GetService("TweenService")
 local userInputService = game:GetService("UserInputService")
 local repStorage = game:GetService("ReplicatedStorage")
@@ -138,6 +144,7 @@ function PlacementModule.LoadTowerMenu()
 end
 
 function PlacementModule.Input(input)
+
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		if towerToSpawn and canPlace then
 			PlacementModule.PlaceTower(towerToSpawn.Name, towerToSpawn.PrimaryPart.CFrame)
@@ -157,6 +164,7 @@ function PlacementModule.Input(input)
 end
 
 function PlacementModule.Tick()
+
 	local result = MouseRaycast(towerToSpawn)
 	if result and result.Instance then
 		if towerToSpawn then
